@@ -15,7 +15,7 @@ pause_install() {
 }
 trap 'CODE=$?; if [[ ${CODE} -ne 0 ]]; then /bin/echo "\n安装未完成，请按上方提示处理后重试。"; pause_install; fi' EXIT
 
-/bin/echo "笔记视频提取器 v1.0.0 安装向导"
+/bin/echo "笔记视频提取器 v1.0.1 安装向导"
 /bin/echo "程序页面保持原版；每位使用者必须使用自己的飞书表格、Cookie和转写密钥。"
 /bin/echo
 

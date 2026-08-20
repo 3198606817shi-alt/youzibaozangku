@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DIST_DIR="${PROJECT_DIR}/dist"
-RELEASE_NAME="笔记视频提取器-v1.0.0-mac"
+RELEASE_NAME="笔记视频提取器-v1.0.1-mac"
 RELEASE_ZIP="${DIST_DIR}/${RELEASE_NAME}.zip"
 CHECKSUM_FILE="${DIST_DIR}/${RELEASE_NAME}.sha256"
 STAGING_ROOT="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/note-extractor-release.XXXXXX")"
