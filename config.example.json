@@ -1,0 +1,6 @@
+{
+  "base_token": "",
+  "table_id": "",
+  "model": "FunAudioLLM/SenseVoiceSmall",
+  "transcribe_api": "https://api.siliconflow.cn/v1/audio/transcriptions"
+}

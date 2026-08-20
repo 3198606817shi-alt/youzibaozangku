@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+downloads/
+logs/
+server.log
+config.json
+settings.json
+*.tmp
+.superpowers/
+dist/笔记视频提取器.app/

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小红书数据提取</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f5f6f8; color: #1f2329; padding: 24px 16px 48px;
+  }
+  .container { max-width: 860px; margin: 0 auto; }
+
+  /* 标题栏 */
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .header h1 { font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .logo { width: 24px; height: 24px; border-radius: 6px; background: #ff2e4d; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; color: #fff; }
+
+  /* 卡片 */
+  .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 16px; }
+
+  /* 过期横幅 */
+  .banner { display: none; background: #fff7e0; border: 1px solid #ffd666; color: #8a5a00; border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 12px; }
+  .banner.show { display: block; }
+  .banner button { margin-left: 8px; background: #ffd666; border: none; border-radius: 6px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
+
+  /* 输入区 */
+  textarea {
+    width: 100%; height: 110px; border: 1px solid #d9dce1; border-radius: 10px;
+    padding: 12px; font-size: 14px; font-family: inherit; resize: vertical;
+    outline: none; transition: border-color .15s;
+  }
+  textarea:focus { border-color: #ff2e4d; }
+
+  .options { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 14px; font-size: 13px; color: #4b5563; }
+  .options label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+  select { border: 1px solid #d9dce1; border-radius: 8px; padding: 5px 8px; font-size: 13px; background: #fff; }
+  input[type=date] { border: 1px solid #d9dce1; border-radius: 8px; padding: 4px 8px; font-size: 13px; }
+
+  /* 按钮 */
+  .actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+  .btn {
+    border: none; border-radius: 10px; padding: 11px 34px; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: opacity .15s, transform .05s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn-primary { background: #ff2e4d; color: #fff; }
+  .btn-primary:hover { opacity: .9; }
+  .btn-primary:disabled { background: #ffb3bf; cursor: not-allowed; }
+  .btn-saved { background: #16a34a !important; color: #fff !important; }
+  .btn-error { background: #dc2626 !important; color: #fff !important; }
+  .btn-stop { background: #6b7280; color: #fff; display: none; }
+  .btn-ghost { background: #fff; color: #4b5563; border: 1px solid #d9dce1; font-size: 13px; padding: 7px 14px; border-radius: 8px; }
+  .btn-ghost:hover { background: #f3f4f6; }
+
+  /* 状态行 */
+  .status { margin-top: 14px; font-size: 14px; min-height: 20px; color: #374151; }
+  .status .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid #ffb3bf; border-top-color: #ff2e4d; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 结果表 */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eef0f3; vertical-align: top; }
+  th { color: #8a919c; font-weight: 500; background: #fafbfc; }
+  .ok { color: #16a34a; font-weight: 600; }
+  .fail { color: #dc2626; font-weight: 600; }
+  .steps { color: #6b7280; }
+  .err { color: #dc2626; font-size: 12px; }
+
+  /* 日志区 */
+  .log-box {
+    background: #1e2229; color: #d6dae1; border-radius: 10px; padding: 12px 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.7;
+    height: 240px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+  }
+  .log-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+
+  /* Cookie 弹窗 */
+  .modal-mask { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 99; align-items: center; justify-content: center; }
+  .modal-mask.show { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 22px; width: 560px; max-width: 92vw; max-height: 86vh; overflow-y: auto; }
+  .modal h2 { font-size: 17px; margin-bottom: 10px; }
+  .modal textarea { height: 140px; font-size: 12px; font-family: Menlo, monospace; }
+  .modal .tip { font-size: 12px; color: #8a919c; margin-top: 8px; line-height: 1.6; }
+  details { margin-top: 12px; font-size: 13px; }
+  summary { cursor: pointer; color: #ff2e4d; font-weight: 500; }
+  .steps-ol { margin: 8px 0 0 18px; color: #4b5563; line-height: 1.9; font-size: 13px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+
+  .hint { font-size: 12px; color: #9aa1ab; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 标题栏 -->
+  <div class="header">
+    <h1><span class="logo">红</span>小红书数据提取</h1>
+    <button class="btn-ghost" id="btnCookie">更新 Cookie</button>
+  </div>
+
+  <!-- Cookie 过期横幅 -->
+  <div class="banner" id="banner">
+    ⚠️ Cookie 可能已过期，抓取失败了。请点右侧「更新 Cookie」粘贴最新的。
+    <button onclick="document.getElementById('btnCookie').click()">去更新</button>
+  </div>
+
+  <!-- 输入卡片 -->
+  <div class="card">
+    <textarea id="urls" placeholder="粘贴小红书链接，一行一个&#10;笔记 / 达人主页 / 短链都可以，例如：&#10;https://www.xiaohongshu.com/explore/6a67fc080000000001030260?...&#10;https://www.xiaohongshu.com/user/profile/5d3951bb00000000120269b3?..."></textarea>
+
+    <div class="options">
+      <label>时间范围
+        <select id="since">
+          <option value="">全部</option>
+          <option value="7d">近 7 天</option>
+          <option value="30d" selected>近 30 天</option>
+          <option value="90d">近 90 天</option>
+          <option value="custom">自定义…</option>
+        </select>
+      </label>
+      <span id="dateWrap" style="display:none"><input type="date" id="sinceDate"></span>
+      <label><input type="checkbox" id="optCleanup" checked> 转写后删除视频（省硬盘）</label>
+      <label><input type="checkbox" id="optNoTrans"> 不转写，只要基础数据</label>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btnStart">开始提取</button>
+      <button class="btn btn-stop" id="btnStop">停止</button>
+    </div>
+
+    <div class="status" id="status"></div>
+    <div class="hint">链接粘贴完成后点「开始提取」，剩下全部自动完成：抓取 → 转写逐字稿 → 写入飞书 → 上传封面。</div>
+  </div>
+
+  <!-- 结果卡片 -->
+  <div class="card" id="resultCard" style="display:none">
+    <h2 style="font-size:15px;margin-bottom:10px">处理结果</h2>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th style="width:36px">#</th><th>标题</th><th style="width:60px">类型</th><th style="width:56px">状态</th><th>处理步骤</th><th style="width:150px">失败原因</th></tr></thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 日志卡片 -->
+  <div class="card">
+    <div class="log-head">
+      <h2 style="font-size:15px">运行日志</h2>
+      <button class="btn-ghost" id="btnClearLog">清空日志</button>
+    </div>
+    <div class="log-box" id="logBox"></div>
+  </div>
+
+</div>
+
+<!-- Cookie 弹窗 -->
+<div class="modal-mask" id="cookieModal">
+  <div class="modal">
+    <h2>更新 Cookie</h2>
+    <textarea id="cookieInput" placeholder="粘贴 F12 里复制的那一长串 cookie..."></textarea>
+    <div class="tip">把新的 Cookie 整串粘贴到这里，点「保存」即可，不用重启。</div>
+    <details>
+      <summary>如何获取 Cookie（三步）</summary>
+      <ol class="steps-ol">
+        <li>浏览器打开 www.xiaohongshu.com 并登录，按 F12 打开开发者工具</li>
+        <li>点顶部「网络」标签，按 F5 刷新页面</li>
+        <li>在左侧请求列表点任意一条，右侧「请求头」里找到 <code>cookie:</code>，全选复制整串内容</li>
+      </ol>
+    </details>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeCookie()">取消</button>
+      <button class="btn btn-primary" id="btnSaveCookie">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var N = 0;               // 日志已读行数
+var pollTimer = null;
+
+// ---------- 工具 ----------
+function $(id) { return document.getElementById(id); }
+function fmtTime(ts) {
+  var d = new Date(ts * 1000);
+  function p(n) { return n < 10 ? '0' + n : n; }
+  return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
+// ---------- 记住"删除视频"勾选状态（默认勾选，用户改过则按上次的来） ----------
+(function () {
+  var cb = $('optCleanup');
+  var saved = localStorage.getItem('optCleanup');
+  cb.checked = saved === null ? true : saved === '1';   // 首次访问默认勾选
+  cb.onchange = function () {
+    localStorage.setItem('optCleanup', this.checked ? '1' : '0');
+  };
+})();
+// 给日志区追加一行带颜色的提示行（用于按钮即时反馈，不依赖后端推送）
+function makeLogLine(text, cls) {
+  var div = document.createElement('div');
+  div.textContent = text;
+  if (cls) div.style.color = cls === 'error' ? '#ff6b6b' : (cls === 'ok' ? '#5cd17a' : '#ffd166');
+  return div;
+}
+
+// ---------- Cookie 弹窗 ----------
+$('btnCookie').onclick = function () { $('cookieModal').classList.add('show'); };
+function closeCookie() { $('cookieModal').classList.remove('show'); }
+$('cookieModal').onclick = function (e) { if (e.target === this) closeCookie(); };
+
+function setSaveBtnState(state, text) {
+  var b = $('btnSaveCookie');
+  b.disabled = (state === 'loading');
+  b.classList.remove('btn-saved', 'btn-error');
+  if (state === 'saved') b.classList.add('btn-saved');
+  if (state === 'error') b.classList.add('btn-error');
+  b.textContent = text;
+}
+
+$('btnSaveCookie').onclick = function () {
+  var cookie = $('cookieInput').value.trim();
+  if (!cookie) {
+    setSaveBtnState('error', 'Cookie 不能为空');
+    setTimeout(function () { setSaveBtnState('idle', '保存'); }, 1500);
+    return;
+  }
+  setSaveBtnState('loading', '保存中…');
+  fetch('/api/cookie', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cookie: cookie })
+  }).then(function (r) {
+    return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+  }).then(function (res) {
+    if (res.ok && res.d.ok) {
+      setSaveBtnState('saved', '✓ 已保存');
+      $('cookieInput').value = '';
+      $('banner').classList.remove('show');
+      // 给用户一秒看清反馈再自动关闭
+      setTimeout(function () {
+        closeCookie();
+        setSaveBtnState('idle', '保存');
+      }, 900);
+    } else {
+      var msg = (res.d && res.d.error) || '网络错误，请重试';
+      setSaveBtnState('error', '保存失败');
+      setTimeout(function () { setSaveBtnState('idle', '保存'); }, 2000);
+      alert('保存失败：' + msg);
+    }
+  }).catch(function (err) {
+    setSaveBtnState('error', '保存失败');
+    setTimeout(function () { setSaveBtnState('idle', '保存'); }, 2000);
+    alert('保存失败（网络错误）：' + (err || '请确认服务已启动'));
+  });
+};
+
+// ---------- 时间范围 ----------
+$('since').onchange = function () {
+  $('dateWrap').style.display = this.value === 'custom' ? 'inline' : 'none';
+};
+
+// ---------- 开始 / 停止 ----------
+$('btnStart').onclick = function () {
+  var lines = $('urls').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+  if (!lines.length) {
+    alert('请先粘贴链接');
+    $('urls').focus();
+    return;
+  }
+
+  var since = $('since').value;
+  if (since === 'custom') {
+    var d = $('sinceDate').value;
+    if (!d) { alert('请选择自定义日期'); return; }
+    since = d;
+  }
+
+  // 立即给视觉反馈，不等后端响应——避免用户以为按钮没反应
+  N = 0;
+  $('logBox').textContent = '';
+  $('banner').classList.remove('show');
+  $('btnStart').disabled = true;
+  var prevLabel = $('btnStart').textContent;
+  $('btnStart').textContent = '已提交，等待调度…';
+
+  // 立刻往日志区写一条提示，让用户确认操作已发出
+  $('logBox').appendChild(makeLogLine('▶ 提交了 ' + lines.length + ' 条链接，时间过滤：「' + (since || '全部') + '」，等调度中…'));
+
+  var body = {
+    urls: lines,
+    since: since,
+    no_transcribe: $('optNoTrans').checked,
+    cleanup: $('optCleanup').checked
+  };
+
+  fetch('/api/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function (r) {
+    return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+  }).then(function (res) {
+    if (!res.ok || !res.d.ok) {
+      $('btnStart').disabled = false;
+      $('btnStart').textContent = prevLabel;
+      var msg = (res.d && res.d.error) || '网络错误';
+      $('logBox').appendChild(makeLogLine('✗ 提交失败：' + msg));
+      alert('提交失败：' + msg);
+    }
+    // 成功则保持 disabled，等轮询自动改回
+  }).catch(function (err) {
+    $('btnStart').disabled = false;
+    $('btnStart').textContent = prevLabel;
+    $('logBox').appendChild(makeLogLine('✗ 提交失败（网络错误）：' + (err || '请确认服务已启动')));
+    alert('提交失败（网络错误）：请确认本地服务已启动，并查看浏览器 Console（F12）');
+  });
+};
+
+$('btnStop').onclick = function () {
+  var prev = $('btnStop').textContent;
+  $('btnStop').disabled = true;
+  $('btnStop').textContent = '停止中…';
+  fetch('/api/stop', { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      $('logBox').appendChild(makeLogLine(d.stopped ? '⏹ 已发送停止指令，已执行中的任务将尽快中断' : '⚠ 当前没有运行中的任务可停止'));
+    })
+    .catch(function () {
+      $('logBox').appendChild(makeLogLine('✗ 停止请求失败（网络错误）'));
+    })
+    .finally(function () {
+      // 100ms 后恢复，状态条会根据服务端状态自动隐藏
+      setTimeout(function () {
+        $('btnStop').disabled = false;
+        $('btnStop').textContent = prev;
+      }, 100);
+    });
+};
+
+$('btnClearLog').onclick = function () { $('logBox').textContent = ''; N = 0; };
+
+// ---------- 渲染结果表 ----------
+function renderItems(items) {
+  if (!items || !items.length) { $('resultCard').style.display = 'none'; return; }
+  $('resultCard').style.display = 'block';
+  var html = '';
+  items.forEach(function (r, i) {
+    var title = r.title || '（未知标题）';
+    var type = r.type || '';
+    var ok = !!r.ok;
+    var skipped = !!r.skipped;
+    var steps = (r.steps || []).join(' → ') || (ok ? '' : '');
+    var err = r.error || '';
+    html += '<tr>' +
+      '<td>' + (i + 1) + '</td>' +
+      '<td>' + esc(title) + '</td>' +
+      '<td>' + esc(type) + '</td>' +
+      '<td class="' + (ok ? 'ok' : 'fail') + '">' + (ok ? (skipped ? '↷' : '✓') : '✗') + '</td>' +
+      '<td class="steps">' + esc(steps) + '</td>' +
+      '<td class="err">' + esc(err) + '</td>' +
+      '</tr>';
+  });
+  $('resultBody').innerHTML = html;
+}
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ---------- 状态行 ----------
+function renderStatus(cur, last, qlen) {
+  var el = $('status');
+  if (cur && cur.state === 'queued') {
+    el.innerHTML = '<span class="spinner"></span>排队中（前面还有 ' + qlen + ' 个任务）';
+  } else if (cur && cur.state === 'running') {
+    var n = cur.items.length;
+    el.innerHTML = '<span class="spinner"></span>运行中… 已完成 <b>' + n + '</b> 条';
+  } else if (last && (last.state === 'done' || last.state === 'failed')) {
+    if (last.stopped) {
+      el.innerHTML = '⏹ 已手动停止。' + fmtSummary(last);
+    } else if (last.state === 'failed') {
+      el.innerHTML = '✗ 任务失败：' + esc(last.error || '未知错误');
+    } else {
+      el.innerHTML = '✓ 完成。' + fmtSummary(last);
+    }
+  } else {
+    el.textContent = '空闲';
+  }
+}
+
+function fmtSummary(task) {
+  var s = task.summary || {};
+  return '成功 <b>' + (s.ok || 0) + '</b> 条，失败 <b>' + (s.fail || 0) + '</b> 条，耗时 <b>' + (s.seconds || 0) + '</b> 秒';
+}
+
+// ---------- 按钮状态 ----------
+function renderButtons(cur, last) {
+  var running = cur && cur.state === 'running';
+  var queued = cur && cur.state === 'queued';
+  $('btnStart').disabled = running || queued;
+  $('btnStart').textContent = running ? '运行中…' : (queued ? '排队中…' : '开始提取');
+  $('btnStop').style.display = running ? 'inline-block' : 'none';
+}
+
+// ---------- 日志 ----------
+function appendLogs(lines) {
+  var box = $('logBox');
+  var last = lines[lines.length - 1] || '';
+  lines.forEach(function (l) {
+    var div = document.createElement('div');
+    div.textContent = l.replace(/\n$/, '');
+    box.appendChild(div);
+  });
+  box.scrollTop = box.scrollHeight;
+  // 检测 Cookie 过期关键词
+  if (/noteDetailMap|Cookie 可能已失效|获取数据失败|风控/.test(last)) {
+    $('banner').classList.add('show');
+  }
+}
+
+// ---------- 轮询 ----------
+function poll() {
+  fetch('/api/status').then(function (r) { return r.json(); }).then(function (d) {
+    var cur = d.current, last = d.last, qlen = d.queue_length;
+    renderStatus(cur, last, qlen);
+    renderButtons(cur, last);
+    renderItems(cur ? cur.items : (last ? last.items : []));
+    var running = cur && cur.state === 'running';
+    if (running) {
+      fetch('/api/logs?since=' + N).then(function (r) { return r.json(); }).then(function (d2) {
+        if (d2.lines && d2.lines.length) appendLogs(d2.lines);
+        N = d2.total;
+      }).catch(function () {});
+    }
+  }).catch(function () {});
+}
+
+pollTimer = setInterval(poll, 1000);
+poll();
+</script>
+</body>
+</html>
