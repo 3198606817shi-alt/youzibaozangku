@@ -108,8 +108,9 @@ def process_profile_web(url, args, stop_event=None, on_item=None):
     """主页批量处理（web 版）：逐条实时回报结果，可中途停止"""
     info = fetch_profile.fetch_profile(url)
     profile = info["profile"]
-    notes = info["notes"]
+    notes = pipeline.profile_video_notes(info["notes"])
     profile_info = {"nickname": profile["nickname"], "profile_url": url}
+    pipeline.ensure_profile_view(profile["nickname"])
 
     since_ms = None
     if args.since:

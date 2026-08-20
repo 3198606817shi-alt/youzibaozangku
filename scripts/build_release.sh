@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DIST_DIR="${PROJECT_DIR}/dist"
-RELEASE_NAME="笔记视频提取器-v1.0.1-mac"
+RELEASE_NAME="笔记视频提取器-v1.0.2-mac"
 RELEASE_ZIP="${DIST_DIR}/${RELEASE_NAME}.zip"
 CHECKSUM_FILE="${DIST_DIR}/${RELEASE_NAME}.sha256"
 STAGING_ROOT="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/note-extractor-release.XXXXXX")"
@@ -20,7 +20,7 @@ trap cleanup EXIT INT TERM
 for FILE in \
   README.md USE_POLICY.md SECURITY.md LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md \
   requirements.txt config.example.json "安装.command" \
-  runtime_config.py configure_app.py feishu_check.py log_safety.py web_app.py pipeline.py \
+  runtime_config.py configure_app.py feishu_check.py feishu_views.py log_safety.py web_app.py pipeline.py \
   fetch_note.py fetch_profile.py transcribe.py; do
   /bin/cp "${PROJECT_DIR}/${FILE}" "${STAGING_DIR}/${FILE}"
 done

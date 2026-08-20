@@ -25,6 +25,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 import fetch_note
 import fetch_profile
+import feishu_views
 from log_safety import safe_display_url, safe_error_text
 from runtime_config import data_dir, load_runtime_config
 from transcribe import video_to_text
@@ -146,6 +147,23 @@ def filter_by_time(notes: list, since_ms: float) -> list:
             continue
         keep.append(n)
     return keep
+
+
+def profile_video_notes(notes: list) -> list:
+    """达人主页当前只处理视频，不把图文笔记写入飞书。"""
+    return [note for note in notes if note.get("type") == "video"]
+
+
+def ensure_profile_view(nickname: str) -> dict:
+    """为达人主页创建或复用只显示该达人视频的飞书视图。"""
+    result = feishu_views.ensure_creator_view(
+        CONFIG["base_token"],
+        CONFIG["table_id"],
+        nickname,
+    )
+    action = "已新建" if result["created"] else "已复用"
+    print(f"  飞书达人视图：{action}「{result['name']}」")
+    return result
 
 
 # ---------- 飞书写入 ----------
@@ -350,7 +368,8 @@ def process_profile(url: str, args) -> list:
         "nickname": profile["nickname"],
         "profile_url": url,
     }
-    notes = info["notes"]
+    notes = profile_video_notes(info["notes"])
+    ensure_profile_view(profile["nickname"])
 
     since_ms = None
     if args.since:

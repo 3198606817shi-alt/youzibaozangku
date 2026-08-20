@@ -15,12 +15,13 @@ class ReleaseArchiveTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        archive = project / "dist" / "笔记视频提取器-v1.0.1-mac.zip"
+        archive = project / "dist" / "笔记视频提取器-v1.0.2-mac.zip"
         with zipfile.ZipFile(archive) as bundle:
             names = bundle.namelist()
 
         self.assertTrue(any(name.endswith("/templates/index.html") for name in names))
         self.assertTrue(any(name.endswith("/安装.command") for name in names))
+        self.assertTrue(any(name.endswith("/feishu_views.py") for name in names))
         self.assertTrue(any("笔记视频提取器.app/Contents/MacOS/" in name for name in names))
         forbidden = (
             "__MACOSX",

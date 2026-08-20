@@ -6,7 +6,7 @@ APP_ROOT="${HOME}/Library/Application Support/笔记视频提取器"
 APP_CODE_DIR="${APP_ROOT}/app"
 APP_VENV_DIR="${APP_ROOT}/venv"
 DESKTOP_APP="${HOME}/Desktop/笔记视频提取器.app"
-REQUIRED_SCOPES="base:app:read base:table:read base:field:read base:record:create base:record:read base:record:update drive:file:upload docs:document.media:upload"
+REQUIRED_SCOPES="bitable:app base:app:read base:table:read base:field:read base:record:create base:record:read base:record:update drive:file:upload docs:document.media:upload"
 
 pause_install() {
   /bin/echo
@@ -15,7 +15,7 @@ pause_install() {
 }
 trap 'CODE=$?; if [[ ${CODE} -ne 0 ]]; then /bin/echo "\n安装未完成，请按上方提示处理后重试。"; pause_install; fi' EXIT
 
-/bin/echo "笔记视频提取器 v1.0.1 安装向导"
+/bin/echo "笔记视频提取器 v1.0.2 安装向导"
 /bin/echo "程序页面保持原版；每位使用者必须使用自己的飞书表格、Cookie和转写密钥。"
 /bin/echo
 
@@ -41,7 +41,7 @@ if [[ -z "${PYTHON_BIN}" ]]; then
 fi
 
 /bin/mkdir -p "${APP_CODE_DIR}/templates" "${APP_CODE_DIR}/scripts" "${APP_ROOT}/downloads" "${APP_ROOT}/logs"
-for FILE in runtime_config.py configure_app.py feishu_check.py log_safety.py web_app.py pipeline.py fetch_note.py fetch_profile.py transcribe.py requirements.txt; do
+for FILE in runtime_config.py configure_app.py feishu_check.py feishu_views.py log_safety.py web_app.py pipeline.py fetch_note.py fetch_profile.py transcribe.py requirements.txt; do
   /bin/cp "${PROJECT_DIR}/${FILE}" "${APP_CODE_DIR}/${FILE}"
 done
 /bin/cp "${PROJECT_DIR}/templates/index.html" "${APP_CODE_DIR}/templates/index.html"

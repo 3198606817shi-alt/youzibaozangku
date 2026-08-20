@@ -11,4 +11,5 @@ config.json
 settings.json
 *.tmp
 .superpowers/
+.auth-temp/
 dist/笔记视频提取器.app/
