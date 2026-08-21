@@ -11,6 +11,8 @@ APP_PORT="8766"
 APP_URL="http://127.0.0.1:${APP_PORT}"
 APP_ENTRY="${APP_CODE_DIR}/web_app.py"
 
+export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH:-/usr/bin:/bin:/usr/sbin:/sbin}"
+
 /bin/mkdir -p "${APP_LOG_DIR}"
 
 is_our_service() {

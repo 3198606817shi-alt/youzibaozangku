@@ -15,7 +15,7 @@ pause_install() {
 }
 trap 'CODE=$?; if [[ ${CODE} -ne 0 ]]; then /bin/echo "\n安装未完成，请按上方提示处理后重试。"; pause_install; fi' EXIT
 
-/bin/echo "笔记视频提取器 v1.0.2 安装向导"
+/bin/echo "笔记视频提取器 v1.0.3 安装向导"
 /bin/echo "程序页面保持原版；每位使用者必须使用自己的飞书表格、Cookie和转写密钥。"
 /bin/echo
 
@@ -115,5 +115,5 @@ fi
 
 /bin/echo
 /bin/echo "安装完成。双击桌面的“笔记视频提取器”即可打开原版页面。"
-/bin/echo "退出时请在Dock中右键应用图标并选择“退出”。"
+/bin/echo "应用在后台运行，不占用Dock；再次双击桌面图标可重新打开页面。"
 pause_install
