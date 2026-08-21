@@ -27,11 +27,13 @@ class MacBundleTests(unittest.TestCase):
         )
 
         self.assertEqual(info["CFBundleName"], "笔记视频提取器")
+        self.assertEqual(info["CFBundleShortVersionString"], "1.0.3")
         self.assertIn("Mach-O", result.stdout)
         self.assertIn("arm64", result.stdout)
         self.assertIn("x86_64", result.stdout)
         self.assertTrue((app / "Contents" / "Resources" / "AppIcon.icns").exists())
         self.assertNotIn("CFBundleIconName", info)
+        self.assertTrue(info.get("LSUIElement"))
 
 
 if __name__ == "__main__":

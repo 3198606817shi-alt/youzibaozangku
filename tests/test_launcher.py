@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import socket
 import subprocess
 import tempfile
 import time
@@ -45,6 +46,57 @@ ThreadingHTTPServer(("127.0.0.1", 8766), Handler).serve_forever()
 
 
 class LauncherTests(unittest.TestCase):
+    def test_launch_finds_lark_cli_installed_in_user_local_bin(self):
+        project = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            app_root = home / "Library" / "Application Support" / "笔记视频提取器"
+            code = app_root / "app"
+            scripts = code / "scripts"
+            venv_bin = app_root / "venv" / "bin"
+            local_bin = home / ".local" / "bin"
+            scripts.mkdir(parents=True)
+            venv_bin.mkdir(parents=True)
+            local_bin.mkdir(parents=True)
+            shutil.copy2(project / "scripts" / "launch.sh", scripts / "launch.sh")
+            with socket.socket() as sock:
+                sock.bind(("127.0.0.1", 0))
+                test_port = sock.getsockname()[1]
+            launch_source = (scripts / "launch.sh").read_text(encoding="utf-8")
+            (scripts / "launch.sh").write_text(
+                launch_source.replace('APP_PORT="8766"', f'APP_PORT="{test_port}"'),
+                encoding="utf-8",
+            )
+            (code / "web_app.py").write_text(
+                "import os, subprocess\n"
+                "from pathlib import Path\n"
+                "subprocess.run(['lark-cli', '--version'], check=True)\n"
+                "Path(os.environ['LARK_CLI_FOUND_MARKER']).write_text('found')\n",
+                encoding="utf-8",
+            )
+            (venv_bin / "python").symlink_to(Path(os.sys.executable))
+            fake_cli = local_bin / "lark-cli"
+            fake_cli.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            fake_cli.chmod(0o755)
+            marker = home / "lark-cli-found"
+            env = {
+                **os.environ,
+                "HOME": str(home),
+                "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+                "NOTE_EXTRACTOR_NO_OPEN": "1",
+                "LARK_CLI_FOUND_MARKER": str(marker),
+            }
+
+            subprocess.run(
+                [str(scripts / "launch.sh")],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+
+            self.assertTrue(marker.exists(), "桌面启动后没有找到~/.local/bin/lark-cli")
+
     def test_stop_script_only_removes_lock_after_process_has_exited(self):
         project = Path(__file__).resolve().parents[1]
         script = (project / "scripts" / "stop.sh").read_text(encoding="utf-8")
@@ -68,7 +120,23 @@ class LauncherTests(unittest.TestCase):
             venv_bin.mkdir(parents=True)
             shutil.copy2(project / "scripts" / "launch.sh", scripts / "launch.sh")
             shutil.copy2(project / "scripts" / "stop.sh", scripts / "stop.sh")
-            (code / "web_app.py").write_text(FAKE_SERVER, encoding="utf-8")
+            with socket.socket() as sock:
+                sock.bind(("127.0.0.1", 0))
+                test_port = sock.getsockname()[1]
+            launch_source = (scripts / "launch.sh").read_text(encoding="utf-8")
+            (scripts / "launch.sh").write_text(
+                launch_source.replace('APP_PORT="8766"', f'APP_PORT="{test_port}"'),
+                encoding="utf-8",
+            )
+            stop_source = (scripts / "stop.sh").read_text(encoding="utf-8")
+            (scripts / "stop.sh").write_text(
+                stop_source.replace('APP_PORT="8766"', f'APP_PORT="{test_port}"'),
+                encoding="utf-8",
+            )
+            (code / "web_app.py").write_text(
+                FAKE_SERVER.replace("8766", str(test_port)),
+                encoding="utf-8",
+            )
             (venv_bin / "python").symlink_to(Path(os.sys.executable))
             env = {**os.environ, "HOME": str(home), "NOTE_EXTRACTOR_NO_OPEN": "1"}
 
@@ -76,7 +144,10 @@ class LauncherTests(unittest.TestCase):
             self.addCleanup(lambda: first.poll() is None and first.terminate())
             for _ in range(40):
                 try:
-                    with urllib.request.urlopen("http://127.0.0.1:8766/api/status", timeout=0.2) as response:
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{test_port}/api/status",
+                        timeout=0.2,
+                    ) as response:
                         if json.load(response).get("service") == "xhs-data-extractor":
                             break
                 except Exception:
@@ -106,7 +177,10 @@ class LauncherTests(unittest.TestCase):
             first.wait(timeout=5)
             self.assertFalse((app_root / "service.lock").exists())
             with self.assertRaises(Exception):
-                urllib.request.urlopen("http://127.0.0.1:8766/api/status", timeout=0.2)
+                urllib.request.urlopen(
+                    f"http://127.0.0.1:{test_port}/api/status",
+                    timeout=0.2,
+                )
 
 
 if __name__ == "__main__":

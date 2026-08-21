@@ -90,50 +90,127 @@ def _xhshow_client():
         raise RuntimeError(f"无法加载 xhshow 签名库: {e}")
 
 
+class IncompleteNoteDataError(RuntimeError):
+    """小红书返回了作品卡片，但缺少后续处理必需的笔记ID。"""
+
+
+def _parse_api_note(note: dict) -> dict:
+    """同时兼容新版顶层字段和旧版 note_card 嵌套字段。"""
+    card = note.get("note_card") or note.get("noteCard") or {}
+    interact = (
+        note.get("interact_info")
+        or note.get("interactInfo")
+        or card.get("interact_info")
+        or card.get("interactInfo")
+        or {}
+    )
+    return {
+        "note_id": (
+            note.get("note_id")
+            or note.get("noteId")
+            or note.get("id")
+            or card.get("note_id")
+            or card.get("noteId")
+            or card.get("id")
+            or ""
+        ),
+        "title": (
+            note.get("title")
+            or note.get("display_title")
+            or note.get("displayTitle")
+            or card.get("title")
+            or card.get("display_title")
+            or card.get("displayTitle")
+            or ""
+        ),
+        "type": note.get("type") or card.get("type") or "",
+        "time": note.get("time") or card.get("time"),
+        "cover": note.get("cover") or card.get("cover") or {},
+        "xsec_token": (
+            note.get("xsec_token")
+            or note.get("xsecToken")
+            or card.get("xsec_token")
+            or card.get("xsecToken")
+            or ""
+        ),
+        "liked_text": (
+            interact.get("liked_count") or interact.get("likedCount") or ""
+        ),
+    }
+
+
+def _ensure_note_ids(notes: list) -> None:
+    missing_videos = [
+        note for note in notes
+        if note.get("type") == "video" and not note.get("note_id")
+    ]
+    if missing_videos or (notes and not any(note.get("note_id") for note in notes)):
+        raise IncompleteNoteDataError(
+            "小红书接口数据异常：视频作品缺少笔记ID。"
+            "请先更新Cookie后重试；如果仍失败，说明小红书接口返回结构已变化。"
+        )
+
+
 def _fetch_notes_via_api(user_id: str, num: int = 30) -> list:
     """
     通过小红书签名接口 /api/sns/web/v1/user_posted 获取笔记列表。
     这是当前（2026）能拿到 note_id 的可靠方式。
     """
     client = _xhshow_client()
-    # 只传最简参数：xhshow 签名对额外参数敏感，加 image_formats/xsec_source 会 406
-    params = {
-        "user_id": user_id,
-        "num": str(num),
-        "cursor": "",
-    }
-    signed_headers = client.sign_headers_get(
-        uri="https://edith.xiaohongshu.com/api/sns/web/v1/user_posted",
-        cookies=SETTINGS.get("cookie", ""),
-        params=params,
-    )
-    req_headers = {**HEADERS, **signed_headers}
     url = "https://edith.xiaohongshu.com/api/sns/web/v1/user_posted"
-    resp = requests.get(url, params=params, headers=req_headers, timeout=20)
-    resp.raise_for_status()
-    data = resp.json()
-
-    if data.get("code") == -100:
-        raise RuntimeError("小红书登录已过期，请刷新 Cookie 后再试")
-    if not data.get("success"):
-        raise RuntimeError(f"接口返回异常: {data.get('msg', data)}")
-
-    notes = (data.get("data") or {}).get("notes") or []
     result = []
-    for note in notes:
-        card = note.get("note_card") or {}
-        interact = card.get("interact_info") or {}
-        # API 返回字段是 snake_case
-        result.append({
-            "note_id": note.get("note_id") or card.get("note_id") or "",
-            "title": card.get("title") or card.get("display_title") or "",
-            "type": card.get("type", ""),
-            "time": note.get("time") or card.get("time"),
-            "cover": card.get("cover", {}),
-            "xsec_token": note.get("xsec_token") or card.get("xsec_token") or "",
-            "liked_text": interact.get("liked_count") or interact.get("likedCount", ""),
-        })
-    return result
+    seen_note_ids = set()
+    seen_cursors = set()
+    cursor = ""
+
+    for page_number in range(1, 201):
+        # 只传最简参数：xhshow 签名对额外参数敏感，加 image_formats/xsec_source 会 406
+        params = {
+            "user_id": user_id,
+            "num": str(num),
+            "cursor": cursor,
+        }
+        signed_headers = client.sign_headers_get(
+            uri=url,
+            cookies=SETTINGS.get("cookie", ""),
+            params=params,
+        )
+        req_headers = {**HEADERS, **signed_headers}
+        resp = requests.get(url, params=params, headers=req_headers, timeout=20)
+        resp.raise_for_status()
+        payload = resp.json()
+
+        if payload.get("code") == -100:
+            raise RuntimeError("小红书登录已过期，请刷新 Cookie 后再试")
+        if not payload.get("success"):
+            raise RuntimeError(f"接口返回异常: {payload.get('msg', payload)}")
+
+        page_data = payload.get("data") or {}
+        page_notes = [_parse_api_note(note) for note in (page_data.get("notes") or [])]
+        _ensure_note_ids(page_notes)
+        for note in page_notes:
+            note_id = note.get("note_id")
+            if note_id and note_id in seen_note_ids:
+                continue
+            if note_id:
+                seen_note_ids.add(note_id)
+            result.append(note)
+
+        print(
+            f"  第{page_number}页获取 {len(page_notes)} 条，"
+            f"去重后累计 {len(result)} 条"
+        )
+        if not page_data.get("has_more"):
+            return result
+
+        next_cursor = page_data.get("cursor") or ""
+        if not next_cursor or next_cursor == cursor or next_cursor in seen_cursors:
+            raise RuntimeError("小红书接口分页游标异常，无法继续获取全部作品")
+        seen_cursors.add(next_cursor)
+        cursor = next_cursor
+        time.sleep(0.5)
+
+    raise RuntimeError("小红书作品页数异常，已停止继续请求")
 
 
 def _fetch_notes_via_html(state: dict) -> list:
@@ -180,11 +257,14 @@ def fetch_profile(url: str) -> dict:
     try:
         notes = _fetch_notes_via_api(user_id)
         print(f"  通过 API 获取 {len(notes)} 条笔记")
+    except IncompleteNoteDataError:
+        raise
     except Exception as e:
         api_error = safe_error_text(e)
         print(f"  [!] API 获取笔记失败: {api_error}")
         print("  [!] 尝试从主页 HTML 兜底解析（note_id 可能为空）...")
         notes = _fetch_notes_via_html(state)
+        _ensure_note_ids(notes)
 
     print(
         f"达人: {profile['nickname']} | 粉丝 {profile['fans']} | "

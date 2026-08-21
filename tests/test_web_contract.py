@@ -76,6 +76,13 @@ class WebContractTests(unittest.TestCase):
         self.assertNotIn("准备自己的飞书表格", html)
         response.close()
 
+    def test_unlimited_time_option_is_labeled_as_all_works(self):
+        response = self.client.get("/")
+        html = response.get_data(as_text=True)
+
+        self.assertIn('<option value="">全部作品</option>', html)
+        response.close()
+
     def test_post_routes_reject_requests_without_exact_local_origin(self):
         for path in ("/api/start", "/api/stop", "/api/cookie"):
             response = self.client.post(path, json={})

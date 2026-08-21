@@ -15,9 +15,10 @@ ICON_SOURCE="${DIST_DIR}/AppIcon.icns"
 /usr/bin/plutil -replace CFBundleName -string "笔记视频提取器" "${APP_PATH}/Contents/Info.plist"
 /usr/bin/plutil -replace CFBundleDisplayName -string "笔记视频提取器" "${APP_PATH}/Contents/Info.plist"
 /usr/bin/plutil -replace CFBundleIdentifier -string "com.youzi.note-video-extractor" "${APP_PATH}/Contents/Info.plist"
-/usr/bin/plutil -replace CFBundleShortVersionString -string "1.0.2" "${APP_PATH}/Contents/Info.plist"
-/usr/bin/plutil -replace CFBundleVersion -string "3" "${APP_PATH}/Contents/Info.plist"
+/usr/bin/plutil -replace CFBundleShortVersionString -string "1.0.3" "${APP_PATH}/Contents/Info.plist"
+/usr/bin/plutil -replace CFBundleVersion -string "4" "${APP_PATH}/Contents/Info.plist"
 /usr/bin/plutil -replace CFBundleIconFile -string "AppIcon" "${APP_PATH}/Contents/Info.plist"
+/usr/bin/plutil -insert LSUIElement -bool true "${APP_PATH}/Contents/Info.plist"
 /usr/bin/plutil -remove CFBundleIconName "${APP_PATH}/Contents/Info.plist" 2>/dev/null || true
 /usr/bin/codesign --force --deep --sign - "${APP_PATH}" >/dev/null
 /bin/echo "${APP_PATH}"
